@@ -1,18 +1,19 @@
 import os
-import time
 import threading
-import traceback
-import json
-from datetime import datetime
+import time
 from telegram import Bot
-from telegram.error import TelegramError, RetryAfter
 
-# 環境変数
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 bot = Bot(token=TOKEN)
 
+def send_telegram(text):
+    try:
+        bot.send_message(chat_id=CHAT_ID, text=text)
+    except Exception as e:
+        print("Telegram error:", e)
+        
 # ===========================
 # ① スレッド安全な重複防止
 # ===========================
