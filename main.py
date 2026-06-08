@@ -133,25 +133,33 @@ def log_print(msg, level="INFO"):
         pass
 
 # ===========================
-# 外部スクレイピング関数（あなたの実装）
+# テスト用スクレイピング関数
 # ===========================
 def fetch_x_tweets():
-    """スクレイピング処理（あなたの実装）"""
-    # from your_scraper import scrape_x
-    # return scrape_x()
-    return []
+    """🐦 Xテスト"""
+    return [{
+        "id": "test1",
+        "text": "Xテスト投稿",
+        "url": "https://example.com"
+    }]
 
 def fetch_amazon():
-    """スクレイピング処理（あなたの実装）"""
-    # from your_scraper import scrape_amazon
-    # return scrape_amazon()
-    return []
+    """📦 Amazonテスト"""
+    return [{
+        "asin": "B000TEST",
+        "title": "Amazonテスト商品",
+        "price": "1980",
+        "url": "https://example.com"
+    }]
 
 def fetch_rakuten():
-    """スクレイピング処理（あなたの実装）"""
-    # from your_scraper import scrape_rakuten
-    # return scrape_rakuten()
-    return []
+    """🛍️  楽天テスト"""
+    return [{
+        "id": "r1",
+        "name": "楽天テスト商品",
+        "price": "2500",
+        "url": "https://example.com"
+    }]
 
 # ===========================
 # ③ 監視スレッド
@@ -170,6 +178,7 @@ def watch_x():
                 try:
                     key = f"x_{t.get('id', '')}"
                     if not add_to_seen(key):
+                        log_print(f"⏭️  重複: {key}", "DEBUG")
                         continue
                     
                     msg = f"🐦 【X】\n{t.get('text', '')[:200]}"
@@ -203,6 +212,7 @@ def watch_amazon():
                 try:
                     key = f"amazon_{p.get('asin', '')}"
                     if not add_to_seen(key):
+                        log_print(f"⏭️  重複: {key}", "DEBUG")
                         continue
                     
                     msg = f"📦 【Amazon】\n{p.get('title', '')[:150]}\n💰 ¥{p.get('price', '')}"
@@ -236,6 +246,7 @@ def watch_rakuten():
                 try:
                     key = f"rakuten_{p.get('id', '')}"
                     if not add_to_seen(key):
+                        log_print(f"⏭️  重複: {key}", "DEBUG")
                         continue
                     
                     msg = f"🛍️  【楽天】\n{p.get('name', '')[:150]}\n💰 ¥{p.get('price', '')}"
