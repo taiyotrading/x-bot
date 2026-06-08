@@ -14,7 +14,7 @@ from telegram.error import TelegramError, RetryAfter
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-bot = Bot(token=TOKEN)
+# bot = Bot(token=TOKEN)
 
 # =====================
 # ロギング
@@ -123,41 +123,25 @@ def enqueue_message(text):
 
 async def _send_telegram_raw(text):
     """async版 Telegram送信（python-telegram-bot 22.2用）"""
-    for attempt in range(1, 4):  # 3回リトライ
-        try:
-            await bot.send_message(
-                chat_id=CHAT_ID,
-                text=text
-            )
-            log_print(f"✅ 送信: {text[:40]}...", "SUCCESS")
-            return True
-        
-        except RetryAfter as e:
-            wait = min(e.retry_after + 1, 30)
-            log_print(f"⏱️  待機 {wait}秒 (試行 {attempt}/3)", "WARN")
-            await asyncio.sleep(wait)
-        
-        except TelegramError as e:
-            log_print(f"❌ Telegram失敗 {attempt}/3: {e}", "ERROR")
-            if attempt < 3:
-                await asyncio.sleep(2 ** attempt)
-        
-        except Exception as e:
-            log_print(f"❌ エラー {attempt}/3: {e}", "ERROR")
-            if attempt < 3:
-                await asyncio.sleep(2 ** attempt)
-    
-    log_print(f"❌ 完全失敗: {text[:40]}...", "CRITICAL")
-    return False
+    try:
+        test_bot = Bot(token=TOKEN)
+
+        await test_bot.send_message(
+            chat_id=CHAT_ID,
+            text=text
+        )
+
+        log_print("✅ Telegram送信成功", "SUCCESS")
+        return True
+
+    except Exception as e:
+        log_print(f"❌ Telegram送信失敗: {e}", "ERROR")
+        return False
 
 
 def send_telegram_worker():
     """キューから順次送信（レート制限対応）"""
     log_print("📤 Telegram送信ワーカー起動", "INFO")
-    
-    # イベントループを1回だけ作成
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     
     while True:
         try:
@@ -165,11 +149,13 @@ def send_telegram_worker():
                 if not telegram_queue:
                     time.sleep(2)
                     continue
+                
                 text = telegram_queue.popleft()
             
-            # loop.run_until_complete で async関数を実行
-            loop.run_until_complete(_send_telegram_raw(text))
-            time.sleep(1.5)  # レート制限対応（1.5秒間隔）
+            # asyncio.run() で毎回新しいイベントループを作成＆破棄
+            asyncio.run(_send_telegram_raw(text))
+            
+            time.sleep(2)  # レート制限対応（2秒間隔）
         
         except Exception as e:
             log_print(f"❌ 送信ワーカーエラー: {e}", "ERROR")
@@ -181,8 +167,9 @@ def send_telegram_worker():
 # =====================
 def fetch_x_tweets():
     """X (Twitter) からツイート取得（テスト用）"""
+    # 固定IDで重複検出テスト
     return [{
-        "id": str(int(time.time())),
+        "id": "x_test_1",
         "text": "X取得テスト",
         "url": "https://example.com"
     }]
@@ -190,8 +177,9 @@ def fetch_x_tweets():
 
 def fetch_amazon_products():
     """Amazon から商品取得（テスト用）"""
+    # 固定IDで重複検出テスト
     return [{
-        "id": str(int(time.time())),
+        "id": "amazon_test_1",
         "title": "Amazon商品テスト",
         "url": "https://amazon.example.com"
     }]
@@ -199,8 +187,9 @@ def fetch_amazon_products():
 
 def fetch_rakuten_items():
     """楽天 から商品取得（テスト用）"""
+    # 固定IDで重複検出テスト
     return [{
-        "id": str(int(time.time())),
+        "id": "rakuten_test_1",
         "title": "楽天商品テスト",
         "url": "https://rakuten.example.com"
     }]
@@ -211,24 +200,15 @@ def fetch_rakuten_items():
 # =====================
 def watch_x():
     log_print("🐦 X監視スレッド起動", "INFO")
-    fail_count = 0
     
     while True:
         try:
-            tweets = fetch_x_tweets()
-            for tweet in tweets:
-                if add_to_seen(f"x_{tweet['id']}"):
-                    msg = f"🐦 新しいツイート\n{tweet['text']}\n🔗 {tweet['url']}"
-                    enqueue_message(msg)
-            fail_count = 0
-        except Exception as e:
-            fail_count += 1
-            log_print(f"❌ X失敗 {fail_count}: {e}", "ERROR")
-            if fail_count >= 5:
-                enqueue_message(f"🚨 X監視エラー: {str(e)[:80]}")
-                fail_count = 0
+            enqueue_message("🐦 テスト")
+            time.sleep(60)
         
-        time.sleep(30)
+        except Exception as e:
+            log_print(f"❌ X監視エラー: {e}", "ERROR")
+            time.sleep(5)
 
 
 def watch_amazon():
