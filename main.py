@@ -170,17 +170,43 @@ def _send_telegram_raw(text, retry=3):
     
     log_print(f"❌ 完全失敗: {text[:40]}...", "CRITICAL")
     return False
+def fetch_x_tweets():
+    log_print("fetch_x_tweets実行", "INFO")
 
-
+    return [
+        {
+            "id": str(int(time.time())),
+            "text": "X取得テスト",
+            "url": "https://example.com"
+        }
+    ]
+    
 def watch_x():
-    while True:
-        log_print("🐦 Xループ実行", "INFO")
+    log_print("🐦 X監視スレッド起動", "INFO")
 
-        if add_to_seen("x_test"):
-            enqueue_message("🐦 Xテスト")
+    while True:
+        try:
+            tweets = fetch_x_tweets()
+
+            log_print(f"🐦 {len(tweets)}件取得", "INFO")
+
+            for t in tweets:
+                key = f"x_{t['id']}"
+
+                if not add_to_seen(key):
+                    continue
+
+                msg = (
+                    f"🐦 {t['text'][:200]}\n"
+                    f"🔗 {t['url']}"
+                )
+
+                enqueue_message(msg)
+
+        except Exception as e:
+            log_print(f"❌ X監視エラー: {e}", "ERROR")
 
         time.sleep(30)
-
 
 def watch_amazon():
     log_print("📦 Amazon監視スレッド起動", "INFO")
