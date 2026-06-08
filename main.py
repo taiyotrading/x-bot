@@ -2,6 +2,7 @@ import os
 import threading
 import time
 import json
+import asyncio
 from collections import deque
 from datetime import datetime
 from telegram import Bot
