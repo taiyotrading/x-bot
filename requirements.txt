@@ -3,7 +3,6 @@ selenium
 beautifulsoup4
 webdriver-manager
 rapidfuzz
-python-telegram-bot
 python-dotenv
 playwright
 python-telegram-bot==22.2
