@@ -171,23 +171,25 @@ def fetch_rakuten_items():
 # =====================
 def watch_x():
     log_print("🐦 X監視スレッド起動", "INFO")
-    fail_count = 0
-    
+
     while True:
+        log_print("🐦 watch_xループ実行", "INFO")
+
         try:
             tweets = fetch_x_tweets()
+
+            log_print(
+                f"🐦 tweets取得: {len(tweets)}件",
+                "INFO"
+            )
+
             for tweet in tweets:
                 if add_to_seen(f"x_{tweet['id']}"):
-                    msg = f"🐦 新しいツイート\n{tweet['text']}\n🔗 {tweet['url']}"
-                    enqueue_message(msg)
-            fail_count = 0
+                    enqueue_message(tweet["text"])
+
         except Exception as e:
-            fail_count += 1
-            log_print(f"❌ X失敗 {fail_count}: {e}", "ERROR")
-            if fail_count >= 5:
-                enqueue_message(f"🚨 X監視エラー: {str(e)[:80]}")
-                fail_count = 0
-        
+            log_print(f"❌ X失敗: {e}", "ERROR")
+
         time.sleep(30)
 
 
