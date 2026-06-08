@@ -14,8 +14,6 @@ from telegram.error import TelegramError, RetryAfter
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# bot = Bot(token=TOKEN)
-
 # =====================
 # ロギング
 # =====================
@@ -124,14 +122,14 @@ def enqueue_message(text):
 async def _send_telegram_raw(text):
     """async版 Telegram送信（python-telegram-bot 22.2用）"""
     try:
-        test_bot = Bot(token=TOKEN)
+        bot = Bot(token=TOKEN)
 
-        await test_bot.send_message(
+        await bot.send_message(
             chat_id=CHAT_ID,
             text=text
         )
 
-        log_print("✅ Telegram送信成功", "SUCCESS")
+        log_print(f"✅ 送信: {text[:40]}", "SUCCESS")
         return True
 
     except Exception as e:
@@ -200,15 +198,24 @@ def fetch_rakuten_items():
 # =====================
 def watch_x():
     log_print("🐦 X監視スレッド起動", "INFO")
+    fail_count = 0
     
     while True:
         try:
-            enqueue_message("🐦 テスト")
-            time.sleep(60)
-        
+            tweets = fetch_x_tweets()
+            for tweet in tweets:
+                if add_to_seen(f"x_{tweet['id']}"):
+                    msg = f"🐦 新しいツイート\n{tweet['text']}\n🔗 {tweet['url']}"
+                    enqueue_message(msg)
+            fail_count = 0
         except Exception as e:
-            log_print(f"❌ X監視エラー: {e}", "ERROR")
-            time.sleep(5)
+            fail_count += 1
+            log_print(f"❌ X失敗 {fail_count}: {e}", "ERROR")
+            if fail_count >= 5:
+                enqueue_message(f"🚨 X監視エラー: {str(e)[:80]}")
+                fail_count = 0
+        
+        time.sleep(30)
 
 
 def watch_amazon():
