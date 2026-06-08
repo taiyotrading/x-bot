@@ -6,12 +6,16 @@ import asyncio
 from collections import deque
 from datetime import datetime
 from telegram import Bot
+from playwright.sync_api import sync_playwright
 
 # =====================
 # 環境変数
 # =====================
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+X_SEARCH_QUERY = os.getenv("X_SEARCH_QUERY", "python")  # X検索キーワード
+AMAZON_SEARCH_QUERY = os.getenv("AMAZON_SEARCH_QUERY", "")  # Amazon検索キーワード
+RAKUTEN_SEARCH_QUERY = os.getenv("RAKUTEN_SEARCH_QUERY", "")  # 楽天検索キーワード
 
 # =====================
 # ロギング
@@ -19,7 +23,7 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 LOG_FILE = "bot.log"
 
 def log_print(msg, level="INFO"):
-    """スレッドセーフなログ（レベル統一）"""
+    """スレッドセーフなログ"""
     level = level.upper()
     if level not in ["DEBUG", "INFO", "SUCCESS", "WARN", "ERROR", "CRITICAL", "HEARTBEAT"]:
         level = "INFO"
@@ -93,7 +97,7 @@ def add_to_seen(key):
 
 
 # =====================
-# Telegram送信キュー制御（deque版 + async）
+# Telegram送信キュー制御
 # =====================
 telegram_queue = deque()
 queue_lock = threading.Lock()
@@ -107,7 +111,7 @@ def enqueue_message(text):
 
 
 async def _send_telegram_raw(text):
-    """async版 Telegram送信（python-telegram-bot 22.2用）"""
+    """async版 Telegram送信"""
     try:
         bot = Bot(token=TOKEN)
 
@@ -146,24 +150,216 @@ def send_telegram_worker():
 
 
 # =====================
-# サンプル取得関数（実装予定）
+# X (Twitter) Playwright スクレイピング
 # =====================
 def fetch_x_tweets():
-    """X (Twitter) からツイート取得"""
-    # TODO: 実装
-    return []
+    """X (Twitter) 検索ページからツイート取得 - Playwright"""
+    try:
+        if not X_SEARCH_QUERY:
+            log_print("⚠️  X_SEARCH_QUERY未設定", "WARN")
+            return []
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+
+            # X検索ページ開く
+            search_url = f"https://x.com/search?q={X_SEARCH_QUERY}&f=live"
+            log_print(f"🐦 X検索ページ開く: {search_url}", "DEBUG")
+            page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+
+            # ツイート読み込み待機
+            time.sleep(3)
+            page.wait_for_load_state("networkidle", timeout=15000)
+
+            # ツイート要素取得
+            tweets = []
+            tweet_articles = page.query_selector_all("article")
+
+            log_print(f"🐦 ツイート要素検出: {len(tweet_articles)}件", "DEBUG")
+
+            for article in tweet_articles:
+                try:
+                    # ツイートID取得
+                    link_elem = article.query_selector("a[href*='/status/']")
+                    if not link_elem:
+                        continue
+                    
+                    href = link_elem.get_attribute("href")
+                    tweet_id = href.split("/status/")[-1] if "/status/" in href else None
+                    
+                    if not tweet_id:
+                        continue
+
+                    # ツイートテキスト取得
+                    text_elem = article.query_selector("[data-testid='tweet'] div:nth-child(2) div:nth-child(2)")
+                    tweet_text = text_elem.inner_text() if text_elem else ""
+
+                    # ユーザー名取得
+                    user_elem = article.query_selector("div span a[href*='/']")
+                    username = ""
+                    if user_elem:
+                        user_href = user_elem.get_attribute("href")
+                        username = user_href.strip("/") if user_href else ""
+
+                    if tweet_text:
+                        tweets.append({
+                            "id": tweet_id,
+                            "text": tweet_text,
+                            "user": username,
+                            "url": f"https://x.com{href}"
+                        })
+
+                except Exception as e:
+                    log_print(f"⚠️  ツイート解析エラー: {e}", "DEBUG")
+                    continue
+
+            browser.close()
+
+            log_print(f"🐦 スクレイピング完了: {len(tweets)}件", "SUCCESS")
+            return tweets
+
+    except Exception as e:
+        log_print(f"❌ X スクレイピングエラー: {e}", "ERROR")
+        return []
 
 
+# =====================
+# Amazon Playwright スクレイピング
+# =====================
 def fetch_amazon_products():
-    """Amazon から商品取得"""
-    # TODO: 実装
-    return []
+    """Amazon 検索ページから商品取得 - Playwright"""
+    try:
+        if not AMAZON_SEARCH_QUERY:
+            log_print("⚠️  AMAZON_SEARCH_QUERY未設定", "WARN")
+            return []
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            )
+            page = context.new_page()
+
+            # Amazon検索ページ開く
+            search_url = f"https://amazon.co.jp/s?k={AMAZON_SEARCH_QUERY}"
+            log_print(f"📦 Amazon検索ページ開く: {search_url}", "DEBUG")
+            page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+
+            # 商品読み込み待機
+            time.sleep(3)
+            page.wait_for_load_state("networkidle", timeout=15000)
+
+            # 商品要素取得
+            products = []
+            product_divs = page.query_selector_all("div[data-component-type='s-search-result']")
+
+            log_print(f"📦 商品要素検出: {len(product_divs)}件", "DEBUG")
+
+            for product_div in product_divs:
+                try:
+                    # ASIN取得
+                    asin = product_div.get_attribute("data-asin")
+                    if not asin:
+                        continue
+
+                    # 商品名取得
+                    title_elem = product_div.query_selector("h2 a span")
+                    title = title_elem.inner_text() if title_elem else "不明"
+
+                    # 価格取得
+                    price_elem = product_div.query_selector("span.a-price-whole")
+                    price = price_elem.inner_text() if price_elem else "価格不明"
+
+                    # リンク取得
+                    link_elem = product_div.query_selector("h2 a")
+                    link = link_elem.get_attribute("href") if link_elem else ""
+
+                    if asin and title:
+                        products.append({
+                            "id": asin,
+                            "title": title,
+                            "price": price,
+                            "url": f"https://amazon.co.jp{link}" if link else ""
+                        })
+
+                except Exception as e:
+                    log_print(f"⚠️  Amazon商品解析エラー: {e}", "DEBUG")
+                    continue
+
+            browser.close()
+
+            log_print(f"📦 スクレイピング完了: {len(products)}件", "SUCCESS")
+            return products
+
+    except Exception as e:
+        log_print(f"❌ Amazon スクレイピングエラー: {e}", "ERROR")
+        return []
 
 
+# =====================
+# 楽天 Playwright スクレイピング
+# =====================
 def fetch_rakuten_items():
-    """楽天 から商品取得"""
-    # TODO: 実装
-    return []
+    """楽天検索ページから商品取得 - Playwright"""
+    try:
+        if not RAKUTEN_SEARCH_QUERY:
+            log_print("⚠️  RAKUTEN_SEARCH_QUERY未設定", "WARN")
+            return []
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            )
+            page = context.new_page()
+
+            # 楽天検索ページ開く
+            search_url = f"https://search.rakuten.co.jp/search/mall/{RAKUTEN_SEARCH_QUERY}/"
+            log_print(f"🛍️  楽天検索ページ開く: {search_url}", "DEBUG")
+            page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+
+            # 商品読み込み待機
+            time.sleep(3)
+            page.wait_for_load_state("networkidle", timeout=15000)
+
+            # 商品要素取得
+            items = []
+            product_links = page.query_selector_all("a.titleLinkUrl")
+
+            log_print(f"🛍️  商品要素検出: {len(product_links)}件", "DEBUG")
+
+            for link in product_links:
+                try:
+                    # 商品名取得
+                    title = link.inner_text()
+
+                    # リンク取得
+                    href = link.get_attribute("href")
+
+                    # 商品ID取得（URLから）
+                    item_id = href.split("/")[-1] if href else None
+
+                    if item_id and title:
+                        items.append({
+                            "id": item_id,
+                            "title": title,
+                            "url": href
+                        })
+
+                except Exception as e:
+                    log_print(f"⚠️  楽天商品解析エラー: {e}", "DEBUG")
+                    continue
+
+            browser.close()
+
+            log_print(f"🛍️  スクレイピング完了: {len(items)}件", "SUCCESS")
+            return items
+
+    except Exception as e:
+        log_print(f"❌ 楽天 スクレイピングエラー: {e}", "ERROR")
+        return []
 
 
 # =====================
@@ -185,7 +381,9 @@ def watch_x():
 
             for tweet in tweets:
                 if add_to_seen(f"x_{tweet['id']}"):
-                    enqueue_message(tweet["text"])
+                    msg = f"🐦 【{tweet['user']}】\n{tweet['text'][:200]}\n{tweet['url']}"
+                    enqueue_message(msg)
+                    log_print(f"🐦 新規ツイート: {tweet['id']}", "SUCCESS")
 
         except Exception as e:
             log_print(f"❌ X失敗: {e}", "ERROR")
@@ -195,45 +393,53 @@ def watch_x():
 
 def watch_amazon():
     log_print("📦 Amazon監視スレッド起動", "INFO")
-    fail_count = 0
-    
+
     while True:
+        log_print("📦 watch_amazonループ実行", "INFO")
+
         try:
             products = fetch_amazon_products()
+
+            log_print(
+                f"📦 products取得: {len(products)}件",
+                "INFO"
+            )
+
             for product in products:
                 if add_to_seen(f"amazon_{product['id']}"):
-                    msg = f"📦 新しい商品\n{product['title']}\n🔗 {product['url']}"
+                    msg = f"📦 {product['title']}\n💰 {product['price']}\n{product['url']}"
                     enqueue_message(msg)
-            fail_count = 0
+                    log_print(f"📦 新規商品: {product['id']}", "SUCCESS")
+
         except Exception as e:
-            fail_count += 1
-            log_print(f"❌ Amazon失敗 {fail_count}: {e}", "ERROR")
-            if fail_count >= 5:
-                enqueue_message(f"🚨 Amazon監視エラー: {str(e)[:80]}")
-                fail_count = 0
-        
+            log_print(f"❌ Amazon失敗: {e}", "ERROR")
+
         time.sleep(60)
 
 
 def watch_rakuten():
     log_print("🛍️  楽天監視スレッド起動", "INFO")
-    fail_count = 0
-    
+
     while True:
+        log_print("🛍️  watch_rakutenループ実行", "INFO")
+
         try:
             items = fetch_rakuten_items()
+
+            log_print(
+                f"🛍️  items取得: {len(items)}件",
+                "INFO"
+            )
+
             for item in items:
                 if add_to_seen(f"rakuten_{item['id']}"):
-                    msg = f"🛍️  新しい商品\n{item['title']}\n🔗 {item['url']}"
+                    msg = f"🛍️  {item['title']}\n{item['url']}"
                     enqueue_message(msg)
-            fail_count = 0
+                    log_print(f"🛍️  新規商品: {item['id']}", "SUCCESS")
+
         except Exception as e:
-            fail_count += 1
-            log_print(f"❌ 楽天失敗 {fail_count}: {e}", "ERROR")
-            if fail_count >= 5:
-                enqueue_message(f"🚨 楽天監視エラー: {str(e)[:80]}")
-                fail_count = 0
-        
+            log_print(f"❌ 楽天失敗: {e}", "ERROR")
+
         time.sleep(60)
 
 
