@@ -14,7 +14,7 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 bot = Bot(token=TOKEN)
-await bot.send_message(...)
+
 # =====================
 # ロギング
 # =====================
@@ -145,9 +145,12 @@ def _send_telegram_raw(text, retry=3):
     """実際の送信処理"""
     for attempt in range(1, retry + 1):
         try:
-            bot.send_message(chat_id=CHAT_ID, text=text)
-            log_print(f"✅ 送信: {text[:40]}...", "SUCCESS")
-            return True
+            asyncio.run(
+                bot.send_message(
+                    chat_id=CHAT_ID,
+                    text=text
+                )
+            )
         
         except RetryAfter as e:
             wait = min(e.retry_after + 1, 30)
