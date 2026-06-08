@@ -6,7 +6,6 @@ import asyncio
 from collections import deque
 from datetime import datetime
 from telegram import Bot
-from telegram.error import TelegramError, RetryAfter
 
 # =====================
 # 環境変数
@@ -21,7 +20,6 @@ LOG_FILE = "bot.log"
 
 def log_print(msg, level="INFO"):
     """スレッドセーフなログ（レベル統一）"""
-    # レベル値の標準化
     level = level.upper()
     if level not in ["DEBUG", "INFO", "SUCCESS", "WARN", "ERROR", "CRITICAL", "HEARTBEAT"]:
         level = "INFO"
@@ -45,9 +43,6 @@ MAX_SEEN_SIZE = 10000
 SEEN_FILE = "seen.json"
 
 
-# ---------------------
-# load
-# ---------------------
 def load_seen():
     global seen
     try:
@@ -61,9 +56,6 @@ def load_seen():
         seen = set()
 
 
-# ---------------------
-# save（別スレッド）with atomic write
-# ---------------------
 def save_seen_loop():
     log_print("💾 seen保存スレッド起動", "INFO")
     while True:
@@ -73,12 +65,10 @@ def save_seen_loop():
             with seen_lock:
                 data = list(seen)
 
-            # 原子的に書き込む（.tmp → 本体）
             tmp_file = SEEN_FILE + ".tmp"
             with open(tmp_file, "w", encoding="utf-8") as f:
                 json.dump(data, f)
             
-            # rename で原子的に交換
             if os.path.exists(SEEN_FILE):
                 os.remove(SEEN_FILE)
             os.rename(tmp_file, SEEN_FILE)
@@ -89,9 +79,6 @@ def save_seen_loop():
             log_print(f"❌ seen保存失敗: {e}", "ERROR")
 
 
-# ---------------------
-# add seen
-# ---------------------
 def add_to_seen(key):
     with seen_lock:
         if len(seen) > MAX_SEEN_SIZE:
@@ -150,10 +137,8 @@ def send_telegram_worker():
                 
                 text = telegram_queue.popleft()
             
-            # asyncio.run() で毎回新しいイベントループを作成＆破棄
             asyncio.run(_send_telegram_raw(text))
-            
-            time.sleep(2)  # レート制限対応（2秒間隔）
+            time.sleep(2)
         
         except Exception as e:
             log_print(f"❌ 送信ワーカーエラー: {e}", "ERROR")
@@ -161,36 +146,24 @@ def send_telegram_worker():
 
 
 # =====================
-# テスト用: サンプルデータ取得関数
+# サンプル取得関数（実装予定）
 # =====================
 def fetch_x_tweets():
-    """X (Twitter) からツイート取得（テスト用）"""
-    # 固定IDで重複検出テスト
-    return [{
-        "id": "x_test_1",
-        "text": "X取得テスト",
-        "url": "https://example.com"
-    }]
+    """X (Twitter) からツイート取得"""
+    # TODO: 実装
+    return []
 
 
 def fetch_amazon_products():
-    """Amazon から商品取得（テスト用）"""
-    # 固定IDで重複検出テスト
-    return [{
-        "id": "amazon_test_1",
-        "title": "Amazon商品テスト",
-        "url": "https://amazon.example.com"
-    }]
+    """Amazon から商品取得"""
+    # TODO: 実装
+    return []
 
 
 def fetch_rakuten_items():
-    """楽天 から商品取得（テスト用）"""
-    # 固定IDで重複検出テスト
-    return [{
-        "id": "rakuten_test_1",
-        "title": "楽天商品テスト",
-        "url": "https://rakuten.example.com"
-    }]
+    """楽天 から商品取得"""
+    # TODO: 実装
+    return []
 
 
 # =====================
@@ -277,14 +250,13 @@ def heartbeat():
             
             now = time.time()
             
-            # 1時間ごとにハートビート送信
             if now - last_send > 3600:
                 msg = f"💚 稼働中\n⏰ {datetime.now().strftime('%H:%M:%S')}\n📊 {count}件追跡"
                 enqueue_message(msg)
                 last_send = now
                 log_print(msg, "INFO")
             
-            time.sleep(300)  # 5分ごとチェック
+            time.sleep(300)
         
         except Exception as e:
             log_print(f"❌ ハートビートエラー: {e}", "ERROR")
@@ -302,10 +274,8 @@ if __name__ == "__main__":
         log_print("❌ 環境変数が未設定", "CRITICAL")
         exit(1)
 
-    # seen復帰
     load_seen()
 
-    # スレッド起動
     threads = [
         ("seen保存", save_seen_loop),
         ("送信ワーカー", send_telegram_worker),
@@ -324,7 +294,6 @@ if __name__ == "__main__":
     log_print("✅ 全スレッド起動完了", "SUCCESS")
     enqueue_message("✅ BOT起動完了")
 
-    # メイン維持
     try:
         while True:
             time.sleep(3600)
