@@ -1,6 +1,7 @@
+import os
+
 print("★★★★ TEST DEPLOY 2026-06-09 ★★★★")
 
-import os
 import threading
 import time
 import json
