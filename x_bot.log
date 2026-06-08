@@ -1,0 +1,195 @@
+2026-05-18 16:33:03,494 [INFO] 🚀 X Bot 24h Mode v2 started
+2026-05-18 16:33:03,494 [INFO] Configuration: EARLY_THRESHOLD=40, MARKET_THRESHOLD=8, SCORE_THRESHOLD=50
+2026-05-18 16:33:03,495 [INFO] ============================================================
+2026-05-18 16:33:03,495 [INFO] Cycle started: 2026-05-18T16:33:03.495767
+2026-05-18 16:33:03,496 [INFO] Scraping X...
+2026-05-18 16:33:04,341 [INFO] Scraping: Nike Jordan drop
+2026-05-18 16:33:13,456 [INFO] Scraping: Supreme drop
+2026-05-18 16:33:19,045 [INFO] Scraping: 予約開始
+2026-05-18 16:33:24,574 [INFO] Scraping: 抽選受付
+2026-05-18 16:33:30,132 [INFO] Scraping: 限定リリース
+2026-05-18 16:33:35,640 [INFO] Scraping: 売切れ
+2026-05-18 16:33:41,137 [INFO] Scraping: 完売
+2026-05-18 16:33:46,641 [INFO] Scraping: 争奪戦
+2026-05-18 16:33:52,134 [INFO] Scraping: 激戦
+2026-05-18 16:33:57,615 [INFO] Scraping: プレ値
+2026-05-18 16:34:03,114 [INFO] Scraping: 転売
+2026-05-18 16:34:08,499 [INFO] Scraping: 入手困難
+2026-05-18 16:34:13,973 [INFO] Found 0 new tweets
+2026-05-18 16:34:13,973 [INFO] No new tweets
+2026-05-18 16:34:13,973 [INFO] Next cycle in 600 seconds...
+2026-05-18 16:44:13,978 [INFO] ============================================================
+2026-05-18 16:44:13,978 [INFO] Cycle started: 2026-05-18T16:44:13.978523
+2026-05-18 16:44:13,979 [INFO] Scraping X...
+2026-05-18 16:44:14,525 [INFO] Scraping: Nike Jordan drop
+2026-05-18 16:44:23,386 [INFO] Scraping: Supreme drop
+2026-05-18 16:44:28,957 [INFO] Scraping: 予約開始
+2026-05-18 16:44:34,379 [INFO] Scraping: 抽選受付
+2026-05-18 16:44:39,880 [INFO] Scraping: 限定リリース
+2026-05-18 16:44:45,394 [INFO] Scraping: 売切れ
+2026-05-18 16:44:50,880 [INFO] Scraping: 完売
+2026-05-18 16:44:56,390 [INFO] Scraping: 争奪戦
+2026-05-18 16:45:01,881 [INFO] Scraping: 激戦
+2026-05-18 16:45:07,378 [INFO] Scraping: プレ値
+2026-05-18 16:45:12,872 [INFO] Scraping: 転売
+2026-05-18 16:45:18,300 [INFO] Scraping: 入手困難
+2026-05-18 16:45:23,813 [INFO] Found 0 new tweets
+2026-05-18 16:45:23,813 [INFO] No new tweets
+2026-05-18 16:45:23,813 [INFO] Next cycle in 600 seconds...
+2026-05-18 16:55:05,617 [INFO] Bot stopped by user
+2026-05-18 16:59:42,890 [INFO] 🚀 X Bot 24h Mode v2 started
+2026-05-18 16:59:42,890 [INFO] Configuration: EARLY_THRESHOLD=40, MARKET_THRESHOLD=8, SCORE_THRESHOLD=50
+2026-05-18 16:59:42,890 [INFO] ============================================================
+2026-05-18 16:59:42,891 [INFO] Cycle started: 2026-05-18T16:59:42.891331
+2026-05-18 16:59:42,891 [INFO] Scraping X...
+2026-05-18 16:59:43,446 [INFO] Scraping: Nike Jordan drop
+2026-05-18 16:59:52,289 [INFO] Scraping: Supreme drop
+2026-05-18 16:59:57,892 [INFO] Scraping: 予約開始
+2026-05-18 17:00:03,386 [INFO] Scraping: 抽選受付
+2026-05-18 17:00:08,876 [INFO] Scraping: 限定リリース
+2026-05-18 17:00:14,342 [INFO] Scraping: 売切れ
+2026-05-18 17:00:19,826 [INFO] Scraping: 完売
+2026-05-18 17:00:25,194 [INFO] Scraping: 争奪戦
+2026-05-18 17:00:30,617 [INFO] Scraping: 激戦
+2026-05-18 17:00:36,086 [INFO] Scraping: プレ値
+2026-05-18 17:00:41,576 [INFO] Scraping: 転売
+2026-05-18 17:00:46,925 [INFO] Scraping: 入手困難
+2026-05-18 17:00:52,358 [INFO] Found 0 new tweets
+2026-05-18 17:00:52,358 [INFO] No new tweets
+2026-05-18 17:00:52,359 [INFO] Next cycle in 600 seconds...
+2026-05-18 17:10:52,368 [INFO] ============================================================
+2026-05-18 17:10:52,368 [INFO] Cycle started: 2026-05-18T17:10:52.368942
+2026-05-18 17:10:52,369 [INFO] Scraping X...
+2026-05-18 17:10:52,970 [INFO] Scraping: Nike Jordan drop
+2026-05-18 17:11:02,120 [INFO] Scraping: Supreme drop
+2026-05-18 17:11:07,776 [INFO] Scraping: 予約開始
+2026-05-18 17:11:13,121 [INFO] Scraping: 抽選受付
+2026-05-18 17:11:18,476 [INFO] Scraping: 限定リリース
+2026-05-18 17:11:23,838 [INFO] Scraping: 売切れ
+2026-05-18 17:11:29,254 [INFO] Scraping: 完売
+2026-05-18 17:11:34,658 [INFO] Scraping: 争奪戦
+2026-05-18 17:11:40,074 [INFO] Scraping: 激戦
+2026-05-18 17:11:45,548 [INFO] Scraping: プレ値
+2026-05-18 17:11:50,983 [INFO] Scraping: 転売
+2026-05-18 17:11:56,356 [INFO] Scraping: 入手困難
+2026-05-18 17:12:01,792 [INFO] Found 0 new tweets
+2026-05-18 17:12:01,792 [INFO] No new tweets
+2026-05-18 17:12:01,793 [INFO] Next cycle in 600 seconds...
+2026-05-18 17:19:00,308 [INFO] Bot stopped by user
+2026-05-18 17:19:01,829 [INFO] 🚀 X Bot 24h Mode v2 started
+2026-05-18 17:19:01,829 [INFO] Configuration: EARLY_THRESHOLD=40, MARKET_THRESHOLD=8, SCORE_THRESHOLD=50
+2026-05-18 17:19:01,829 [INFO] ============================================================
+2026-05-18 17:19:01,830 [INFO] Cycle started: 2026-05-18T17:19:01.830060
+2026-05-18 17:19:01,830 [INFO] Scraping X...
+2026-05-18 17:19:01,835 [ERROR] Cycle error: 'XScraper' object has no attribute 'scrape'
+Traceback (most recent call last):
+  File "C:\Users\yoshi\OneDrive\Desktop\X_bot_project\X\playwright_x_search.py", line 609, in run_cycle
+    tweets = await self.scraper.scrape()
+                   ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'XScraper' object has no attribute 'scrape'
+2026-05-18 17:19:01,837 [INFO] Cycle finished: 2026-05-18T17:19:01.837313
+2026-05-18 17:19:01,837 [INFO] ============================================================
+2026-05-18 17:19:01,838 [INFO] Next cycle in 600 seconds...
+2026-05-18 17:20:00,324 [INFO] Bot stopped by user
+2026-05-18 17:33:53,376 [INFO] cycle done: 0 tweets
+2026-05-18 17:35:01,939 [INFO] cycle done: 0 tweets
+2026-05-18 17:37:43,782 [INFO] cycle done: 0 tweets
+2026-05-18 17:38:47,936 [INFO] cycle done: 0 tweets
+2026-05-18 17:46:53,194 [INFO] cycle done: 0 tweets
+2026-05-18 17:47:59,959 [INFO] query=Nike Jordan drop articles=0
+2026-05-18 17:48:04,559 [INFO] query=Supreme drop articles=0
+2026-05-18 17:49:58,682 [INFO] query=Nike Jordan drop articles=0
+2026-05-18 17:50:03,232 [INFO] query=Supreme drop articles=0
+2026-05-18 17:50:07,680 [INFO] query=予約開始 articles=0
+2026-05-18 17:50:12,130 [INFO] query=抽選受付 articles=0
+2026-05-18 17:50:16,806 [INFO] query=限定リリース articles=0
+2026-05-18 17:50:21,264 [INFO] query=売切れ articles=0
+2026-05-18 17:50:25,901 [INFO] query=完売 articles=0
+2026-05-18 18:03:30,461 [INFO] query=Nike Jordan drop articles=0
+2026-05-18 18:03:35,054 [INFO] query=Supreme drop articles=0
+2026-05-18 18:03:39,426 [INFO] query=予約開始 articles=0
+2026-05-18 18:07:16,945 [INFO] query=Nike Jordan drop articles=7
+2026-05-18 18:07:24,591 [INFO] query=Supreme drop articles=13
+2026-05-18 18:07:32,398 [INFO] query=予約開始 articles=7
+2026-05-18 18:07:39,924 [INFO] query=抽選受付 articles=7
+2026-05-18 18:07:47,437 [INFO] query=限定リリース articles=7
+2026-05-18 18:07:54,968 [INFO] query=売切れ articles=10
+2026-05-18 18:08:02,561 [INFO] query=完売 articles=9
+2026-05-18 18:08:10,134 [INFO] query=争奪戦 articles=9
+2026-05-18 18:08:17,710 [INFO] query=激戦 articles=12
+2026-05-18 18:08:25,360 [INFO] query=プレ値 articles=14
+2026-05-18 18:08:33,036 [INFO] query=転売 articles=13
+2026-05-18 18:08:40,789 [INFO] query=入手困難 articles=11
+2026-05-18 18:08:41,455 [INFO] tweets=116
+2026-05-18 18:08:41,455 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,455 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,456 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,456 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,456 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,456 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,457 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,458 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,459 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,459 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,459 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,460 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,460 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,460 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,460 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,460 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,461 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,461 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,461 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,461 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,461 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,462 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,462 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,462 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,462 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,463 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,463 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,463 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,464 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,464 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,464 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,466 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,467 [ERROR] telegram error: name 'TELEGRAM_CHAT_ID' is not defined
+2026-05-18 18:08:41,468 [INFO] cycle done
+2026-05-18 18:11:57,474 [INFO] query=Nike Jordan drop articles=7
+2026-05-18 18:12:05,024 [INFO] query=Supreme drop articles=13
+2026-05-18 18:12:12,777 [INFO] query=予約開始 articles=7
+2026-05-18 18:12:20,324 [INFO] query=抽選受付 articles=6
+2026-05-18 18:12:27,833 [INFO] query=限定リリース articles=7
+2026-05-18 18:12:35,435 [INFO] query=売切れ articles=9
+2026-05-18 18:12:43,006 [INFO] query=完売 articles=8
+2026-05-18 18:12:50,566 [INFO] query=争奪戦 articles=11
+2026-05-18 18:12:58,217 [INFO] query=激戦 articles=15
+2026-05-18 18:13:05,991 [INFO] query=プレ値 articles=13
+2026-05-18 18:13:13,573 [INFO] query=転売 articles=12
+2026-05-18 18:13:21,233 [INFO] query=入手困難 articles=10
+2026-05-18 18:13:21,833 [INFO] tweets=70
+2026-05-18 18:13:21,833 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,834 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,834 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,835 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,835 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,835 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,835 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,835 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,836 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,836 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,837 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,837 [ERROR] telegram error: name 'url' is not defined
+2026-05-18 18:13:21,838 [INFO] cycle done
