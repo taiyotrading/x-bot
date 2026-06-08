@@ -1,7 +1,4 @@
 import os
-
-print("★★★★ TEST DEPLOY 2026-06-09 ★★★★")
-
 import threading
 import time
 import json
@@ -111,9 +108,9 @@ def add_to_seen(key):
 
 
 # =====================
-# Telegram送信キュー制御（deque版）
+# Telegram送信キュー制御（deque版 + async）
 # =====================
-telegram_queue = deque()  # ✅ list → deque に変更（O(n) → O(1)）
+telegram_queue = deque()
 queue_lock = threading.Lock()
 
 
@@ -124,20 +121,54 @@ def enqueue_message(text):
     log_print(f"📬 キュー追加: {len(telegram_queue)}件", "DEBUG")
 
 
+async def _send_telegram_raw(text):
+    """async版 Telegram送信（python-telegram-bot 22.2用）"""
+    for attempt in range(1, 4):  # 3回リトライ
+        try:
+            await bot.send_message(
+                chat_id=CHAT_ID,
+                text=text
+            )
+            log_print(f"✅ 送信: {text[:40]}...", "SUCCESS")
+            return True
+        
+        except RetryAfter as e:
+            wait = min(e.retry_after + 1, 30)
+            log_print(f"⏱️  待機 {wait}秒 (試行 {attempt}/3)", "WARN")
+            await asyncio.sleep(wait)
+        
+        except TelegramError as e:
+            log_print(f"❌ Telegram失敗 {attempt}/3: {e}", "ERROR")
+            if attempt < 3:
+                await asyncio.sleep(2 ** attempt)
+        
+        except Exception as e:
+            log_print(f"❌ エラー {attempt}/3: {e}", "ERROR")
+            if attempt < 3:
+                await asyncio.sleep(2 ** attempt)
+    
+    log_print(f"❌ 完全失敗: {text[:40]}...", "CRITICAL")
+    return False
+
+
 def send_telegram_worker():
     """キューから順次送信（レート制限対応）"""
     log_print("📤 Telegram送信ワーカー起動", "INFO")
+    
+    # イベントループを1回だけ作成
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     
     while True:
         try:
             with queue_lock:
                 if not telegram_queue:
-                    # ✅ sleep を 2秒 に延長（CPU無駄使い防止）
                     time.sleep(2)
                     continue
-                text = telegram_queue.popleft()  # ✅ pop(0) → popleft()
+                text = telegram_queue.popleft()
             
-            _send_telegram_raw(text, retry=3)
+            # loop.run_until_complete で async関数を実行
+            loop.run_until_complete(_send_telegram_raw(text))
             time.sleep(1.5)  # レート制限対応（1.5秒間隔）
         
         except Exception as e:
@@ -145,71 +176,60 @@ def send_telegram_worker():
             time.sleep(5)
 
 
-def _send_telegram_raw(text, retry=3):
-    """実際の送信処理"""
-    for attempt in range(1, retry + 1):
-        try:
-            asyncio.run(
-                bot.send_message(
-                    chat_id=CHAT_ID,
-                    text=text
-                )
-            )
-        
-        except RetryAfter as e:
-            wait = min(e.retry_after + 1, 30)
-            log_print(f"⏱️  待機 {wait}秒 (試行 {attempt}/{retry})", "WARN")
-            time.sleep(wait)
-        
-        except TelegramError as e:
-            log_print(f"❌ Telegram失敗 {attempt}/{retry}: {e}", "ERROR")
-            if attempt < retry:
-                time.sleep(2 ** attempt)
-        
-        except Exception as e:
-            log_print(f"❌ エラー {attempt}/{retry}: {e}", "ERROR")
-            if attempt < retry:
-                time.sleep(2 ** attempt)
-    
-    log_print(f"❌ 完全失敗: {text[:40]}...", "CRITICAL")
-    return False
+# =====================
+# テスト用: サンプルデータ取得関数
+# =====================
 def fetch_x_tweets():
-    log_print("fetch_x_tweets実行", "INFO")
+    """X (Twitter) からツイート取得（テスト用）"""
+    return [{
+        "id": str(int(time.time())),
+        "text": "X取得テスト",
+        "url": "https://example.com"
+    }]
 
-    return [
-        {
-            "id": str(int(time.time())),
-            "text": "X取得テスト",
-            "url": "https://example.com"
-        }
-    ]
-    
+
+def fetch_amazon_products():
+    """Amazon から商品取得（テスト用）"""
+    return [{
+        "id": str(int(time.time())),
+        "title": "Amazon商品テスト",
+        "url": "https://amazon.example.com"
+    }]
+
+
+def fetch_rakuten_items():
+    """楽天 から商品取得（テスト用）"""
+    return [{
+        "id": str(int(time.time())),
+        "title": "楽天商品テスト",
+        "url": "https://rakuten.example.com"
+    }]
+
+
+# =====================
+# 監視スレッド
+# =====================
 def watch_x():
     log_print("🐦 X監視スレッド起動", "INFO")
-
+    fail_count = 0
+    
     while True:
         try:
             tweets = fetch_x_tweets()
-
-            log_print(f"🐦 {len(tweets)}件取得", "INFO")
-
-            for t in tweets:
-                key = f"x_{t['id']}"
-
-                if not add_to_seen(key):
-                    continue
-
-                msg = (
-                    f"🐦 {t['text'][:200]}\n"
-                    f"🔗 {t['url']}"
-                )
-
-                enqueue_message(msg)
-
+            for tweet in tweets:
+                if add_to_seen(f"x_{tweet['id']}"):
+                    msg = f"🐦 新しいツイート\n{tweet['text']}\n🔗 {tweet['url']}"
+                    enqueue_message(msg)
+            fail_count = 0
         except Exception as e:
-            log_print(f"❌ X監視エラー: {e}", "ERROR")
-
+            fail_count += 1
+            log_print(f"❌ X失敗 {fail_count}: {e}", "ERROR")
+            if fail_count >= 5:
+                enqueue_message(f"🚨 X監視エラー: {str(e)[:80]}")
+                fail_count = 0
+        
         time.sleep(30)
+
 
 def watch_amazon():
     log_print("📦 Amazon監視スレッド起動", "INFO")
@@ -217,8 +237,11 @@ def watch_amazon():
     
     while True:
         try:
-            if add_to_seen("amazon_test"):
-                enqueue_message("📦 Amazonテスト")
+            products = fetch_amazon_products()
+            for product in products:
+                if add_to_seen(f"amazon_{product['id']}"):
+                    msg = f"📦 新しい商品\n{product['title']}\n🔗 {product['url']}"
+                    enqueue_message(msg)
             fail_count = 0
         except Exception as e:
             fail_count += 1
@@ -236,8 +259,11 @@ def watch_rakuten():
     
     while True:
         try:
-            if add_to_seen("rakuten_test"):
-                enqueue_message("🛍️ 楽天テスト")
+            items = fetch_rakuten_items()
+            for item in items:
+                if add_to_seen(f"rakuten_{item['id']}"):
+                    msg = f"🛍️  新しい商品\n{item['title']}\n🔗 {item['url']}"
+                    enqueue_message(msg)
             fail_count = 0
         except Exception as e:
             fail_count += 1
@@ -253,7 +279,7 @@ def watch_rakuten():
 # ハートビート＆プロセス監視
 # =====================
 def heartbeat():
-    """10分ごとに生存確認"""
+    """1時間ごとにハートビート送信"""
     log_print("💚 ハートビート起動", "INFO")
     last_send = 0
     
