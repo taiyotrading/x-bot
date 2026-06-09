@@ -711,4 +711,293 @@ class XScraper:
 
         Path(SEEN_TWEETS_FILE).write_text(
             json.dumps(list(self.seen), indent=2),
-            encoding="utf-8
+            encoding="utf-8"
+        )
+
+    async def scrape(self) -> List[Dict]:
+
+        tweets = []
+
+        async with async_playwright() as p:
+
+            # ★強化版launch（反検知対策）
+            browser = await p.chromium.launch(
+                headless=False,
+                slow_mo=150,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                ]
+            )
+
+            # ★重要：storage_state + 偽装context
+            context = await browser.new_context(
+                storage_state="storage_state.json",
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                locale="ja-JP",
+                viewport={"width": 1280, "height": 800},
+            )
+
+            page = await context.new_page()
+
+            # ★HTTPヘッダ偽装
+            await page.set_extra_http_headers({
+                "accept-language": "ja,en-US;q=0.9,en;q=0.8",
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            })
+
+            # ★ホームページアクセス
+            await page.goto("https://x.com/home", wait_until="domcontentloaded")
+
+            await page.wait_for_timeout(15000)
+
+            # ========================================
+            # 🔍 デバッグ出力
+            # ========================================
+            print("\n" + "="*60)
+            print(f"HOME URL: {page.url}")
+            content = await page.content()
+            print(f"HOME CONTENT（先頭1000字）:\n{content[:1000]}")
+            print("="*60 + "\n")
+            # ========================================
+
+            # ★ログイン画面判定
+            if "login" in page.url.lower():
+                print("⚠️  ログイン画面検出")
+                await page.screenshot(path="login_detected.png")
+                with open("login_html.txt", "w", encoding="utf-8") as f:
+                    f.write(content[:3000])
+                print("⚠️  ログインしてください")
+                input("ログイン後 Enter →")
+
+            # ★各クエリで検索
+            for q in QUERIES:
+
+                url = (
+                    f"https://x.com/search?q={quote(q)}&f=live"
+                )
+
+                try:
+
+                    logger.info(f"🔍 検索開始: {q}")
+
+                    await page.goto(
+                        url,
+                        wait_until="domcontentloaded"
+                    )
+
+                    await page.wait_for_timeout(6000)
+
+                    # ========================================
+                    # 🔍 クエリごとのデバッグ出力
+                    # ========================================
+                    print("\n" + "="*60)
+                    print(f"QUERY: {q}")
+                    print(f"URL: {page.url}")
+                    content = await page.content()
+                    print(f"CONTENT（先頭1000字）:\n{content[:1000]}")
+                    print("="*60 + "\n")
+                    # ========================================
+
+                    # ★URL判定
+                    if "login" in page.url.lower() or "auth" in page.url.lower():
+                        logger.warning(f"❌ {q}: ログイン画面/ブロック検出")
+                        await page.screenshot(path=f"search_login_{q}.png")
+                        continue
+
+                    # ★ツイート要素タイムアウト時の対応
+                    try:
+                        await page.wait_for_selector("article", timeout=8000)
+                        logger.info(f"✅ {q}: article要素検出")
+                    except:
+                        logger.warning(f"⚠️  {q}: article要素タイムアウト")
+                        await page.screenshot(path=f"search_timeout_{q}.png")
+                        continue
+
+                    await page.mouse.wheel(0, 4000)
+
+                    await page.wait_for_timeout(2000)
+
+                    articles = await page.query_selector_all(
+                        "article"
+                    )
+
+                    logger.info(
+                        f"✅ query={q} articles={len(articles)}"
+                    )
+
+                    # ★0件判定
+                    if len(articles) == 0:
+                        logger.warning(f"⚠️  {q}: article 0件")
+                        await page.screenshot(path=f"search_0articles_{q}.png")
+                        with open(f"search_0articles_{q}.html", "w", encoding="utf-8") as f:
+                            f.write((await page.content())[:5000])
+                        continue
+
+                    for a in articles:
+
+                        try:
+
+                            link = await a.query_selector(
+                                "a[href*='/status/']"
+                            )
+
+                            if not link:
+                                continue
+
+                            href = await link.get_attribute("href")
+
+                            if not href:
+                                continue
+
+                            m = re.search(
+                                r"/status/(\d+)",
+                                href
+                            )
+
+                            if not m:
+                                continue
+
+                            tweet_id = m.group(1)
+
+                            if tweet_id in self.seen:
+                                continue
+
+                            text_el = await a.query_selector(
+                                "[data-testid='tweetText']"
+                            )
+
+                            if not text_el:
+                                continue
+
+                            text = (
+                                await text_el.text_content()
+                                or ""
+                            )
+
+                            if len(text) < 5:
+                                continue
+
+                            tweets.append({
+                                "id": tweet_id,
+                                "text": text,
+                                "likes": 0,
+                            })
+
+                            self.seen.add(tweet_id)
+
+                            logger.info(f"✅ ツイート追加: {tweet_id}")
+
+                        except Exception as e:
+
+                            logger.error(
+                                f"tweet parse error: {e}"
+                            )
+
+                except Exception as e:
+
+                    logger.error(
+                        f"page error (query={q}): {e}"
+                    )
+
+                    # ★例外発生時のスクリーンショット
+                    try:
+                        await page.screenshot(path=f"search_exception_{q}.png")
+                        print(f"\n❌ 例外発生時URL: {page.url}")
+                        print(f"❌ 例外発生時CONTENT（先頭500字）:\n{(await page.content())[:500]}\n")
+                    except:
+                        pass
+
+            await browser.close()
+
+        self._save()
+
+        return tweets
+
+
+# =========================================================
+# BOT
+# =========================================================
+class XBot:
+
+    def __init__(self):
+
+        self.scraper = XScraper()
+
+        self.notifier = TelegramNotifier()
+
+        self.scorer = TweetScorer()
+
+    async def run_cycle(self):
+
+        tweets = await self.scraper.scrape()
+
+        logger.info(f"tweets={len(tweets)}")
+
+        for t in tweets:
+
+            score = self.scorer.score(
+                text=t["text"],
+                like_count=t.get("likes", 0),
+            )
+
+            # =========================
+            # FULL SCORE LOG
+            # =========================
+            logger.info(
+                f"""
+========================================
+TOTAL: {score['total']:.1f}
+REASON: {score['reason']}
+SHOULD: {score['should']}
+
+EARLY: {score.get('early', 0)}
+PRESSURE: {score.get('market_pressure', 0)}
+MARKET: {score.get('market_signal', 0)}
+SALE: {score.get('sale_score', 0)}
+LIKE: {score.get('like_bonus', 0)}
+
+NOISE_SCORE: {score.get('noise_score', 0)}
+NOISE_FACTOR: {score.get('noise_factor', 0):.2f}
+STRONG_NOISE: {score.get('strong_noise', False)}
+
+TEXT:
+{t['text']}
+========================================
+"""
+            )
+
+            if score["should"]:
+
+                self.notifier.send(
+                    t["text"],
+                    t["id"],
+                    score,
+                )
+
+        logger.info("cycle done")
+
+    async def run_forever(self):
+
+        while True:
+
+            await self.run_cycle()
+
+            await asyncio.sleep(CYCLE_INTERVAL)
+
+
+# =========================================================
+# MAIN
+# =========================================================
+async def main():
+
+    bot = XBot()
+
+    await bot.run_forever()
+
+
+if __name__ == "__main__":
+
+    asyncio.run(main())
