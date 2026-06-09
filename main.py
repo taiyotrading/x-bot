@@ -6,7 +6,7 @@ import asyncio
 from collections import deque
 from datetime import datetime
 from telegram import Bot
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
+from playwright.sync_api import sync_playwright
 
 # =====================
 # 環境変数
@@ -142,20 +142,14 @@ def send_telegram_worker():
             time.sleep(5)
 
 # =====================
-# Playwright グローバルインスタンス
+# スレッドローカルなPlaywright状態管理
 # =====================
-class PlaywrightManager:
-    """Playwright ブラウザ再利用マネージャー"""
+class ThreadLocalPlaywright:
+    """各スレッドが独立したPlaywrightインスタンスを持つ"""
     
     def __init__(self):
-        self.playwright = None
-        self.x_browser = None
-        self.x_page = None
-        self.amazon_browser = None
-        self.amazon_page = None
-        self.rakuten_browser = None
-        self.rakuten_page = None
-        self.lock = threading.Lock()
+        self._thread_local = threading.local()
+        self.error_count_lock = threading.Lock()
         self.x_error_count = 0
         self.amazon_error_count = 0
         self.rakuten_error_count = 0
@@ -163,136 +157,112 @@ class PlaywrightManager:
         self.amazon_last_success = None
         self.rakuten_last_success = None
     
-    def init_playwright(self):
-        """Playwright初期化"""
-        if self.playwright:
-            return
+    def get_playwright(self):
+        """スレッド内でPlaywrightインスタンスを取得"""
+        if not hasattr(self._thread_local, 'playwright') or self._thread_local.playwright is None:
+            self._thread_local.playwright = sync_playwright().start()
+            log_print(f"✅ {threading.current_thread().name}: Playwright初期化", "DEBUG")
+        return self._thread_local.playwright
+    
+    def get_browser(self, platform):
+        """スレッド内でブラウザを取得（再利用 or 新規）"""
+        playwright = self.get_playwright()
         
+        attr_name = f'{platform}_browser'
+        
+        if not hasattr(self._thread_local, attr_name) or getattr(self._thread_local, attr_name) is None:
+            try:
+                log_print(f"{platform} 新規ブラウザ起動", "INFO")
+                browser = playwright.chromium.launch(headless=True)
+                setattr(self._thread_local, attr_name, browser)
+            except Exception as e:
+                log_print(f"❌ {platform} ブラウザ起動失敗: {e}", "ERROR")
+                raise
+        
+        return getattr(self._thread_local, attr_name)
+    
+    def get_page(self, platform):
+        """スレッド内でページを取得（再利用 or 新規）"""
+        browser = self.get_browser(platform)
+        
+        attr_name = f'{platform}_page'
+        
+        # ページが存在して生きているか確認
+        if hasattr(self._thread_local, attr_name) and getattr(self._thread_local, attr_name) is not None:
+            try:
+                page = getattr(self._thread_local, attr_name)
+                page.evaluate("1 + 1")  # ヘルスチェック
+                return page
+            except:
+                pass
+        
+        # ページを新規作成
         try:
-            self.playwright = sync_playwright().start()
-            log_print("✅ Playwright初期化完了", "INFO")
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+            page.set_default_timeout(30000)
+            setattr(self._thread_local, attr_name, page)
+            log_print(f"{platform} ページ作成完了", "DEBUG")
+            return page
         except Exception as e:
-            log_print(f"❌ Playwright初期化失敗: {e}", "CRITICAL")
+            log_print(f"❌ {platform} ページ作成失敗: {e}", "ERROR")
             raise
     
-    def get_x_page(self):
-        """X用ページ取得（再利用 or 新規）"""
-        with self.lock:
+    def close_browser(self, platform):
+        """ブラウザをクローズ"""
+        attr_name = f'{platform}_browser'
+        if hasattr(self._thread_local, attr_name):
             try:
-                # ページが存在して生きているか確認
-                if self.x_page and self.x_browser:
-                    try:
-                        self.x_page.evaluate("1 + 1")  # 簡易ヘルスチェック
-                        return self.x_page
-                    except:
-                        pass
-                
-                # 既存ブラウザをクローズ
-                if self.x_browser:
-                    try:
-                        self.x_browser.close()
-                    except:
-                        pass
-                
-                # 新規ブラウザ起動
-                log_print("🐦 新規X用ブラウザ起動", "INFO")
-                self.x_browser = self.playwright.chromium.launch(headless=True)
-                context = self.x_browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-                self.x_page = context.new_page()
-                self.x_page.set_default_timeout(30000)
-                self.x_error_count = 0
-                
-                return self.x_page
-            
-            except Exception as e:
-                log_print(f"❌ X用ページ取得失敗: {e}", "ERROR")
+                browser = getattr(self._thread_local, attr_name)
+                if browser:
+                    browser.close()
+                setattr(self._thread_local, attr_name, None)
+                setattr(self._thread_local, f'{platform}_page', None)
+                log_print(f"{platform} ブラウザクローズ", "DEBUG")
+            except:
+                pass
+    
+    def inc_error(self, platform):
+        """エラーカウント増加"""
+        with self.error_count_lock:
+            if platform == "x":
                 self.x_error_count += 1
-                raise
-    
-    def get_amazon_page(self):
-        """Amazon用ページ取得（再利用 or 新規）"""
-        with self.lock:
-            try:
-                if self.amazon_page and self.amazon_browser:
-                    try:
-                        self.amazon_page.evaluate("1 + 1")
-                        return self.amazon_page
-                    except:
-                        pass
-                
-                if self.amazon_browser:
-                    try:
-                        self.amazon_browser.close()
-                    except:
-                        pass
-                
-                log_print("📦 新規Amazon用ブラウザ起動", "INFO")
-                self.amazon_browser = self.playwright.chromium.launch(headless=True)
-                context = self.amazon_browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-                self.amazon_page = context.new_page()
-                self.amazon_page.set_default_timeout(30000)
-                self.amazon_error_count = 0
-                
-                return self.amazon_page
-            
-            except Exception as e:
-                log_print(f"❌ Amazon用ページ取得失敗: {e}", "ERROR")
+                return self.x_error_count
+            elif platform == "amazon":
                 self.amazon_error_count += 1
-                raise
-    
-    def get_rakuten_page(self):
-        """楽天用ページ取得（再利用 or 新規）"""
-        with self.lock:
-            try:
-                if self.rakuten_page and self.rakuten_browser:
-                    try:
-                        self.rakuten_page.evaluate("1 + 1")
-                        return self.rakuten_page
-                    except:
-                        pass
-                
-                if self.rakuten_browser:
-                    try:
-                        self.rakuten_browser.close()
-                    except:
-                        pass
-                
-                log_print("🛍️  新規楽天用ブラウザ起動", "INFO")
-                self.rakuten_browser = self.playwright.chromium.launch(headless=True)
-                context = self.rakuten_browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-                self.rakuten_page = context.new_page()
-                self.rakuten_page.set_default_timeout(30000)
-                self.rakuten_error_count = 0
-                
-                return self.rakuten_page
-            
-            except Exception as e:
-                log_print(f"❌ 楽天用ページ取得失敗: {e}", "ERROR")
+                return self.amazon_error_count
+            elif platform == "rakuten":
                 self.rakuten_error_count += 1
-                raise
+                return self.rakuten_error_count
+    
+    def reset_error(self, platform):
+        """エラーカウントリセット"""
+        with self.error_count_lock:
+            if platform == "x":
+                self.x_error_count = 0
+            elif platform == "amazon":
+                self.amazon_error_count = 0
+            elif platform == "rakuten":
+                self.rakuten_error_count = 0
 
-pm = PlaywrightManager()
+tlp = ThreadLocalPlaywright()
 
 # =====================
-# X (Twitter) Playwright スクレイピング
+# X (Twitter) スクレイピング
 # =====================
 def fetch_x_tweets():
-    """X (Twitter) 検索ページからツイート取得 - Playwright（再利用）"""
+    """X (Twitter) 検索ページからツイート取得 - Playwright（スレッドローカル）"""
     try:
         if not X_SEARCH_QUERY:
             log_print("⚠️  X_SEARCH_QUERY未設定", "WARN")
             return []
 
-        page = pm.get_x_page()
+        page = tlp.get_page("x")
 
         search_url = f"https://x.com/search?q={X_SEARCH_QUERY}&f=live"
-        log_print(f"🐦 X検索ページへ移動: {search_url}", "DEBUG")
+        log_print(f"🐦 X検索ページへ移動", "DEBUG")
         
         page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
         time.sleep(2)
@@ -310,8 +280,11 @@ def fetch_x_tweets():
         # 0件ならログイン画面やBot判定の可能性が高い
         if len(tweet_articles) == 0:
             log_print("⚠️  ツイート取得0件 → ページスクリーンショット保存", "WARN")
-            page.screenshot(path="x_error.png")
-            log_print("🐦 x_error.pngに保存（ログイン画面やBot判定の可能性）", "WARN")
+            try:
+                page.screenshot(path="x_error.png")
+                log_print("🐦 x_error.pngに保存（ログイン画面やBot判定の可能性）", "WARN")
+            except:
+                pass
             return []
 
         tweets = []
@@ -349,42 +322,35 @@ def fetch_x_tweets():
                 log_print(f"⚠️  ツイート解析エラー: {e}", "DEBUG")
                 continue
 
-        pm.x_last_success = datetime.now()
-        pm.x_error_count = 0
+        tlp.x_last_success = datetime.now()
+        tlp.reset_error("x")
         log_print(f"🐦 スクレイピング完了: {len(tweets)}件 ✅", "SUCCESS")
         return tweets
 
     except Exception as e:
         log_print(f"❌ X スクレイピング失敗: {e}", "ERROR")
-        pm.x_error_count += 1
+        error_count = tlp.inc_error("x")
         
-        if pm.x_error_count > 3:
+        if error_count > 3:
             log_print("🐦 エラー3回以上 → ブラウザリセット", "WARN")
-            with pm.lock:
-                if pm.x_browser:
-                    try:
-                        pm.x_browser.close()
-                    except:
-                        pass
-                pm.x_browser = None
-                pm.x_page = None
+            tlp.close_browser("x")
         
         return []
 
 # =====================
-# Amazon Playwright スクレイピング
+# Amazon スクレイピング
 # =====================
 def fetch_amazon_products():
-    """Amazon 検索ページから商品取得 - Playwright（再利用）"""
+    """Amazon 検索ページから商品取得 - Playwright（スレッドローカル）"""
     try:
         if not AMAZON_SEARCH_QUERY:
             log_print("⚠️  AMAZON_SEARCH_QUERY未設定", "WARN")
             return []
 
-        page = pm.get_amazon_page()
+        page = tlp.get_page("amazon")
 
         search_url = f"https://amazon.co.jp/s?k={AMAZON_SEARCH_QUERY}"
-        log_print(f"📦 Amazon検索ページへ移動: {search_url}", "DEBUG")
+        log_print(f"📦 Amazon検索ページへ移動", "DEBUG")
         
         page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
         time.sleep(2)
@@ -400,7 +366,10 @@ def fetch_amazon_products():
 
         if len(product_divs) == 0:
             log_print("⚠️  商品取得0件 → ページスクリーンショット保存", "WARN")
-            page.screenshot(path="amazon_error.png")
+            try:
+                page.screenshot(path="amazon_error.png")
+            except:
+                pass
             return []
 
         products = []
@@ -432,42 +401,35 @@ def fetch_amazon_products():
                 log_print(f"⚠️  Amazon商品解析エラー: {e}", "DEBUG")
                 continue
 
-        pm.amazon_last_success = datetime.now()
-        pm.amazon_error_count = 0
+        tlp.amazon_last_success = datetime.now()
+        tlp.reset_error("amazon")
         log_print(f"📦 スクレイピング完了: {len(products)}件 ✅", "SUCCESS")
         return products
 
     except Exception as e:
         log_print(f"❌ Amazon スクレイピング失敗: {e}", "ERROR")
-        pm.amazon_error_count += 1
+        error_count = tlp.inc_error("amazon")
         
-        if pm.amazon_error_count > 3:
+        if error_count > 3:
             log_print("📦 エラー3回以上 → ブラウザリセット", "WARN")
-            with pm.lock:
-                if pm.amazon_browser:
-                    try:
-                        pm.amazon_browser.close()
-                    except:
-                        pass
-                pm.amazon_browser = None
-                pm.amazon_page = None
+            tlp.close_browser("amazon")
         
         return []
 
 # =====================
-# 楽天 Playwright スクレイピング（セレクタ複数対応）
+# 楽天 スクレイピング（セレクタ複数対応）
 # =====================
 def fetch_rakuten_items():
-    """楽天検索ページから商品取得 - Playwright（再利用+複数セレクタ）"""
+    """楽天検索ページから商品取得 - Playwright（スレッドローカル+複数セレクタ）"""
     try:
         if not RAKUTEN_SEARCH_QUERY:
             log_print("⚠️  RAKUTEN_SEARCH_QUERY未設定", "WARN")
             return []
 
-        page = pm.get_rakuten_page()
+        page = tlp.get_page("rakuten")
 
         search_url = f"https://search.rakuten.co.jp/search/mall/{RAKUTEN_SEARCH_QUERY}/"
-        log_print(f"🛍️  楽天検索ページへ移動: {search_url}", "DEBUG")
+        log_print(f"🛍️  楽天検索ページへ移動", "DEBUG")
         
         page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
         time.sleep(2)
@@ -496,7 +458,10 @@ def fetch_rakuten_items():
 
         if len(product_links) == 0:
             log_print("⚠️  商品取得0件 → ページスクリーンショット保存", "WARN")
-            page.screenshot(path="rakuten_error.png")
+            try:
+                page.screenshot(path="rakuten_error.png")
+            except:
+                pass
             return []
 
         items = []
@@ -522,25 +487,18 @@ def fetch_rakuten_items():
                 log_print(f"⚠️  楽天商品解析エラー: {e}", "DEBUG")
                 continue
 
-        pm.rakuten_last_success = datetime.now()
-        pm.rakuten_error_count = 0
+        tlp.rakuten_last_success = datetime.now()
+        tlp.reset_error("rakuten")
         log_print(f"🛍️  スクレイピング完了: {len(items)}件 ✅", "SUCCESS")
         return items
 
     except Exception as e:
         log_print(f"❌ 楽天 スクレイピング失敗: {e}", "ERROR")
-        pm.rakuten_error_count += 1
+        error_count = tlp.inc_error("rakuten")
         
-        if pm.rakuten_error_count > 3:
+        if error_count > 3:
             log_print("🛍️  エラー3回以上 → ブラウザリセット", "WARN")
-            with pm.lock:
-                if pm.rakuten_browser:
-                    try:
-                        pm.rakuten_browser.close()
-                    except:
-                        pass
-                pm.rakuten_browser = None
-                pm.rakuten_page = None
+            tlp.close_browser("rakuten")
         
         return []
 
@@ -548,6 +506,7 @@ def fetch_rakuten_items():
 # 監視スレッド
 # =====================
 def watch_x():
+    """X監視スレッド（スレッドローカルPlaywright使用）"""
     log_print("🐦 X監視スレッド起動", "INFO")
 
     while True:
@@ -567,6 +526,7 @@ def watch_x():
 
 
 def watch_amazon():
+    """Amazon監視スレッド（スレッドローカルPlaywright使用）"""
     log_print("📦 Amazon監視スレッド起動", "INFO")
 
     while True:
@@ -586,6 +546,7 @@ def watch_amazon():
 
 
 def watch_rakuten():
+    """楽天監視スレッド（スレッドローカルPlaywright使用）"""
     log_print("🛍️  楽天監視スレッド起動", "INFO")
 
     while True:
@@ -607,7 +568,7 @@ def watch_rakuten():
 # ハートビート＆状態監視
 # =====================
 def heartbeat():
-    """1時間ごとにハートビート送信 + 状態通知"""
+    """5分ごとに状態ログ + 1時間ごとにTelegram送信"""
     log_print("💚 ハートビート起動", "INFO")
     last_send = 0
     
@@ -619,12 +580,12 @@ def heartbeat():
             now = time.time()
             
             # 5分ごとにログ出力（状態確認用）
-            status = f"💚 稼働中 | X最終成功: {pm.x_last_success.strftime('%H:%M:%S') if pm.x_last_success else 'なし'} | Amazon最終成功: {pm.amazon_last_success.strftime('%H:%M:%S') if pm.amazon_last_success else 'なし'} | 楽天最終成功: {pm.rakuten_last_success.strftime('%H:%M:%S') if pm.rakuten_last_success else 'なし'} | 追跡: {count}件"
+            status = f"💚 稼働中 | X最終成功: {tlp.x_last_success.strftime('%H:%M:%S') if tlp.x_last_success else 'なし'} | Amazon最終成功: {tlp.amazon_last_success.strftime('%H:%M:%S') if tlp.amazon_last_success else 'なし'} | 楽天最終成功: {tlp.rakuten_last_success.strftime('%H:%M:%S') if tlp.rakuten_last_success else 'なし'} | 追跡: {count}件"
             log_print(status, "HEARTBEAT")
             
             # 1時間ごとにTelegram送信
             if now - last_send > 3600:
-                msg = f"💚 BOT稼働中\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n📊 追跡: {count}件\n🐦 X最終: {pm.x_last_success.strftime('%H:%M:%S') if pm.x_last_success else '未実行'}\n📦 Amazon最終: {pm.amazon_last_success.strftime('%H:%M:%S') if pm.amazon_last_success else '未実行'}\n🛍️  楽天最終: {pm.rakuten_last_success.strftime('%H:%M:%S') if pm.rakuten_last_success else '未実行'}"
+                msg = f"💚 BOT稼働中\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n📊 追跡: {count}件\n🐦 X最終: {tlp.x_last_success.strftime('%H:%M:%S') if tlp.x_last_success else '未実行'}\n📦 Amazon最終: {tlp.amazon_last_success.strftime('%H:%M:%S') if tlp.amazon_last_success else '未実行'}\n🛍️  楽天最終: {tlp.rakuten_last_success.strftime('%H:%M:%S') if tlp.rakuten_last_success else '未実行'}"
                 enqueue_message(msg)
                 last_send = now
             
@@ -646,13 +607,6 @@ if __name__ == "__main__":
         exit(1)
 
     load_seen()
-    
-    # Playwright初期化
-    try:
-        pm.init_playwright()
-    except Exception as e:
-        log_print(f"❌ Playwright初期化失敗: {e}", "CRITICAL")
-        exit(1)
 
     threads = [
         ("seen保存", save_seen_loop),
