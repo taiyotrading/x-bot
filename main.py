@@ -173,10 +173,24 @@ class ThreadLocalPlaywright:
         if not hasattr(self._thread_local, attr_name) or getattr(self._thread_local, attr_name) is None:
             try:
                 log_print(f"{platform} 新規ブラウザ起動", "INFO")
-                browser = playwright.chromium.launch(headless=True)
+                
+                # ✅ サーバー環境対応（Render環境での安定性向上）
+                browser = playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-gpu",
+                        "--single-process",
+                    ]
+                )
+                
                 setattr(self._thread_local, attr_name, browser)
+                log_print(f"{platform} ブラウザ起動完了", "SUCCESS")
+                
             except Exception as e:
-                log_print(f"❌ {platform} ブラウザ起動失敗: {e}", "ERROR")
+                log_print(f"❌ {platform} ブラウザ起動失敗: {e}", "CRITICAL")
                 raise
         
         return getattr(self._thread_local, attr_name)
