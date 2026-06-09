@@ -217,7 +217,7 @@ class ThreadLocalPlaywright:
         try:
             # ★超重要：人間らしいcontext偽装
             context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 locale="ja-JP",
                 viewport={"width": 1280, "height": 800},
                 device_scale_factor=1,
@@ -291,16 +291,44 @@ def fetch_x_tweets():
         page = tlp.get_page("x")
 
         search_url = f"https://x.com/search?q={X_SEARCH_QUERY}&f=live"
-        log_print(f"🐦 X検索ページへ移動", "DEBUG")
+        log_print(f"🐦 X検索ページへ移動: {search_url}", "DEBUG")
         
         page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-        time.sleep(2)
+        
+        # ★ページロード待機を追加
+        page.wait_for_load_state("domcontentloaded")
+        time.sleep(5)  # 追加の安全待機
+
+        # ① HTML状態を判定 - ログイン画面検知
+        content = page.content()
+        log_print(f"🐦 現在のURL: {page.url}", "DEBUG")
+        
+        if "login" in content.lower() or "/login" in page.url.lower():
+            log_print("⚠️  【ログイン画面検出】ページ保存", "WARN")
+            try:
+                page.screenshot(path="x_login_detected.png")
+                with open("x_login_html.txt", "w", encoding="utf-8") as f:
+                    f.write(content[:2000])
+            except:
+                pass
+            
+            # ブラウザをリセット
+            tlp.close_browser("x")
+            error_count = tlp.inc_error("x")
+            return []
+
+        # コンテンツ先頭をデバッグ出力
+        log_print(f"🐦 ページコンテンツ（先頭500字）:\n{content[:500]}", "DEBUG")
 
         # ツイート要素検出待機
         try:
             page.wait_for_selector("article", timeout=10000)
         except:
-            log_print("⚠️  article要素タイムアウト（ログイン画面の可能性）", "WARN")
+            log_print("⚠️  article要素タイムアウト（ページ遷移中か無関係コンテンツ）", "WARN")
+            try:
+                page.screenshot(path="x_no_article.png")
+            except:
+                pass
 
         tweet_articles = page.query_selector_all("article")
 
@@ -308,12 +336,20 @@ def fetch_x_tweets():
 
         # 0件ならログイン画面やBot判定の可能性が高い
         if len(tweet_articles) == 0:
-            log_print("⚠️  ツイート取得0件 → ページスクリーンショット保存", "WARN")
+            log_print("⚠️  ツイート取得0件 → ページスクリーンショット+HTMLダンプ保存", "WARN")
             try:
                 page.screenshot(path="x_error.png")
-                log_print("🐦 x_error.pngに保存（ログイン画面やBot判定の可能性）", "WARN")
+                with open("x_error_html.txt", "w", encoding="utf-8") as f:
+                    f.write(page.content()[:5000])
+                log_print(f"🐦 デバッグファイル保存: x_error.png, x_error_html.txt", "WARN")
             except:
                 pass
+            
+            error_count = tlp.inc_error("x")
+            if error_count > 3:
+                log_print("🐦 エラー3回以上 → ブラウザリセット", "WARN")
+                tlp.close_browser("x")
+            
             return []
 
         tweets = []
@@ -358,6 +394,15 @@ def fetch_x_tweets():
 
     except Exception as e:
         log_print(f"❌ X スクレイピング失敗: {e}", "ERROR")
+        
+        # ★デバッグ用スクリーンショット
+        try:
+            page = tlp.get_page("x")
+            page.screenshot(path="x_exception.png")
+            log_print(f"🐦 例外時スクリーンショット: x_exception.png", "DEBUG")
+        except:
+            pass
+        
         error_count = tlp.inc_error("x")
         
         if error_count > 3:
@@ -379,15 +424,26 @@ def fetch_amazon_products():
         page = tlp.get_page("amazon")
 
         search_url = f"https://amazon.co.jp/s?k={AMAZON_SEARCH_QUERY}"
-        log_print(f"📦 Amazon検索ページへ移動", "DEBUG")
+        log_print(f"📦 Amazon検索ページへ移動: {search_url}", "DEBUG")
         
         page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-        time.sleep(2)
+        
+        # ★ページロード待機を追加
+        page.wait_for_load_state("domcontentloaded")
+        time.sleep(3)
+
+        # ① HTML状態を判定
+        content = page.content()
+        log_print(f"📦 現在のURL: {page.url}", "DEBUG")
 
         try:
             page.wait_for_selector("[data-component-type='s-search-result']", timeout=10000)
         except:
             log_print("⚠️  商品要素タイムアウト", "WARN")
+            try:
+                page.screenshot(path="amazon_timeout.png")
+            except:
+                pass
 
         product_divs = page.query_selector_all("[data-component-type='s-search-result']")
 
@@ -397,8 +453,16 @@ def fetch_amazon_products():
             log_print("⚠️  商品取得0件 → ページスクリーンショット保存", "WARN")
             try:
                 page.screenshot(path="amazon_error.png")
+                with open("amazon_error_html.txt", "w", encoding="utf-8") as f:
+                    f.write(content[:5000])
             except:
                 pass
+            
+            error_count = tlp.inc_error("amazon")
+            if error_count > 3:
+                log_print("📦 エラー3回以上 → ブラウザリセット", "WARN")
+                tlp.close_browser("amazon")
+            
             return []
 
         products = []
@@ -437,6 +501,14 @@ def fetch_amazon_products():
 
     except Exception as e:
         log_print(f"❌ Amazon スクレイピング失敗: {e}", "ERROR")
+        
+        try:
+            page = tlp.get_page("amazon")
+            page.screenshot(path="amazon_exception.png")
+            log_print(f"📦 例外時スクリーンショット: amazon_exception.png", "DEBUG")
+        except:
+            pass
+        
         error_count = tlp.inc_error("amazon")
         
         if error_count > 3:
@@ -458,10 +530,17 @@ def fetch_rakuten_items():
         page = tlp.get_page("rakuten")
 
         search_url = f"https://search.rakuten.co.jp/search/mall/{RAKUTEN_SEARCH_QUERY}/"
-        log_print(f"🛍️  楽天検索ページへ移動", "DEBUG")
+        log_print(f"🛍️  楽天検索ページへ移動: {search_url}", "DEBUG")
         
         page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-        time.sleep(2)
+        
+        # ★ページロード待機を追加
+        page.wait_for_load_state("domcontentloaded")
+        time.sleep(3)
+
+        # ① HTML状態を判定
+        content = page.content()
+        log_print(f"🛍️  現在のURL: {page.url}", "DEBUG")
 
         try:
             page.wait_for_selector("a", timeout=10000)
@@ -489,8 +568,16 @@ def fetch_rakuten_items():
             log_print("⚠️  商品取得0件 → ページスクリーンショット保存", "WARN")
             try:
                 page.screenshot(path="rakuten_error.png")
+                with open("rakuten_error_html.txt", "w", encoding="utf-8") as f:
+                    f.write(content[:5000])
             except:
                 pass
+            
+            error_count = tlp.inc_error("rakuten")
+            if error_count > 3:
+                log_print("🛍️  エラー3回以上 → ブラウザリセット", "WARN")
+                tlp.close_browser("rakuten")
+            
             return []
 
         items = []
@@ -523,6 +610,14 @@ def fetch_rakuten_items():
 
     except Exception as e:
         log_print(f"❌ 楽天 スクレイピング失敗: {e}", "ERROR")
+        
+        try:
+            page = tlp.get_page("rakuten")
+            page.screenshot(path="rakuten_exception.png")
+            log_print(f"🛍️  例外時スクリーンショット: rakuten_exception.png", "DEBUG")
+        except:
+            pass
+        
         error_count = tlp.inc_error("rakuten")
         
         if error_count > 3:
