@@ -174,7 +174,7 @@ class ThreadLocalPlaywright:
             try:
                 log_print(f"{platform} 新規ブラウザ起動", "INFO")
                 
-                # ✅ サーバー環境対応（Render環境での安定性向上）
+                # ✅ サーバー環境対応 + 検知回避系（重要）
                 browser = playwright.chromium.launch(
                     headless=True,
                     args=[
@@ -183,6 +183,9 @@ class ThreadLocalPlaywright:
                         "--disable-dev-shm-usage",
                         "--disable-gpu",
                         "--single-process",
+                        # ★重要：検知回避系
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-infobars",
                     ]
                 )
                 
@@ -196,7 +199,7 @@ class ThreadLocalPlaywright:
         return getattr(self._thread_local, attr_name)
     
     def get_page(self, platform):
-        """スレッド内でページを取得（再利用 or 新規）"""
+        """スレッド内でページを取得（再利用 or 新規）- 偽装context付き"""
         browser = self.get_browser(platform)
         
         attr_name = f'{platform}_page'
@@ -210,15 +213,27 @@ class ThreadLocalPlaywright:
             except:
                 pass
         
-        # ページを新規作成
+        # ページを新規作成（超重要：偽装context）
         try:
+            # ★超重要：人間らしいcontext偽装
             context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                locale="ja-JP",
+                viewport={"width": 1280, "height": 800},
+                device_scale_factor=1,
             )
+            
             page = context.new_page()
             page.set_default_timeout(30000)
+            
+            # ★任意だけど効く：HTTPヘッダ偽装
+            page.set_extra_http_headers({
+                "accept-language": "ja,en-US;q=0.9,en;q=0.8",
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            })
+            
             setattr(self._thread_local, attr_name, page)
-            log_print(f"{platform} ページ作成完了", "DEBUG")
+            log_print(f"{platform} ページ作成完了（偽装context）", "DEBUG")
             return page
         except Exception as e:
             log_print(f"❌ {platform} ページ作成失敗: {e}", "ERROR")
